@@ -23,7 +23,7 @@ Configure os seguintes **secrets** em `Settings > Secrets and variables > Action
 
 Para gerar o conteúdo do `EC2_SSH_KEY`:
 ```bash
-base64 ec2_key.pem
+base64 -w 0 ./<keyPath>.pem > keyssh.pem.b64
 ```
 
 ---
