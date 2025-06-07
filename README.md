@@ -78,3 +78,54 @@ E pronto. O deploy será feito automaticamente na VMs.
 
 O workflow está em:  
 `.github/workflows/main.yml`
+
+```yaml
+name: 🚀 Deploy Docker em EC2
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  deploy:
+    name: 🔄 Deploy automático via SSH
+    runs-on: ubuntu-latest
+    environment: aws
+
+    env:
+      SSH_KEY_PATH: ./ec2_key.pem
+      DEPLOY_DIR: ${{ secrets.EC2_DEPLOY_DIR }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+
+    steps:
+      - name: 📦 Clonar o repositório
+        uses: actions/checkout@v3
+
+      - name: 🔐 Criar chave SSH temporária a partir do secret base64
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > "$SSH_KEY_PATH"
+          chmod 600 "$SSH_KEY_PATH"
+
+      - name: 🚀 Conectar na EC2 e executar o deploy
+        run: |
+          echo "🔗 Conectando na EC2 em $EC2_HOST com o usuário $EC2_USER..."
+          ssh -tt -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" "
+            set -e
+            echo '📁 Entrando no diretório do projeto...'
+            cd '$DEPLOY_DIR'
+            echo '🌀 Resetando alterações locais (git reset --hard)...'
+            git reset --hard HEAD
+            git clean -fd
+            echo '📥 Fazendo pull da branch master...'
+            git pull origin master
+            echo '🛑 Parando containers antigos...'
+            docker-compose down
+            echo '🧱 Recriando containers com build...'
+            docker-compose up -d --build >/dev/null 2>&1 &&
+            echo '✅ Deploy finalizado com sucesso!' || echo '❌ Deploy falhou!'
+          "
+
+      - name: 🧼 Limpar chave SSH temporária
+        run: rm -f "$SSH_KEY_PATH"
+```
