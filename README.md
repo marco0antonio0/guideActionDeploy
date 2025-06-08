@@ -1,6 +1,6 @@
-# 🚀 Deploy Automático com GitHub Actions + Docker
+# 🚀 Deploy Automático com GitHub Actions + Autoscaling EC2
 
-Esse projeto usa **GitHub Actions** para fazer deploy automático em uma instância VMs com Docker toda vez que um `push` é feito na branch `master`.
+Este projeto usa **GitHub Actions** para fazer deploy automático em uma instância EC2 com Docker **incluindo escalonamento automático de recursos** toda vez que um `push` é feito na branch `master`.
 
 ---
 
@@ -8,56 +8,75 @@ Esse projeto usa **GitHub Actions** para fazer deploy automático em uma instân
 
 ### No Servidor EC2 (Ubuntu)
 - Docker e Docker Compose instalados
-- Projeto já clonado em um diretório (ex: `/home/ubuntu/app`)
+- Projeto já clonado no diretório (ex: `/home/ubuntu/app`)
 - Acesso SSH com chave `.pem`
+- Permissões adequadas no diretório
 
 ### No Repositório GitHub
-Configure os seguintes **secrets** em `Settings > Secrets and variables > Actions`:
+Configure os seguintes **secrets** em  
+`Settings > Secrets and variables > Actions`:
 
-| Nome             | Descrição                                          |
-|------------------|---------------------------------------------------|
-| `EC2_SSH_KEY`    | Conteúdo da `.pem` codificado em base64           |
-| `EC2_USER`       | Usuário SSH da VM (ex: `ubuntu`)                 |
-| `EC2_HOST`       | IP público da VM                                 |
-| `EC2_DEPLOY_DIR` | Caminho no servidor onde está o projeto clonado   |
+| Nome                  | Descrição                                           |
+|-----------------------|-----------------------------------------------------|
+| `EC2_SSH_KEY`         | Conteúdo da `.pem` codificado em base64             |
+| `EC2_USER`            | Usuário SSH da EC2 (ex: `ubuntu`, `admin`)          |
+| `EC2_HOST`            | IP público ou DNS da instância EC2                  |
+| `EC2_INSTANCE_ID`     | ID da instância EC2 (ex: `i-00dac334671257ec59`)     |
+| `AWS_ACCESS_KEY_ID`   | Chave pública do IAM                                |
+| `AWS_SECRET_ACCESS_KEY` | Chave secreta do IAM                              |
 
 Para gerar o conteúdo do `EC2_SSH_KEY`:
+
 ```bash
-base64 -w 0 ./<keyPath>.pem > keyssh.pem.b64
+base64 -w 0 ./ec2_key.pem > ec2_key.pem.b64
+```
+
+Para copiar o conteudo do b64:
+
+```bash
+cat ec2_key.pem.b64
 ```
 
 ---
 
 ## 🚀 Como funciona
 
-Ao dar `git push origin master`:
+Quando você executa:
 
-1. GitHub Actions clona seu repositório
-2. Cria a chave `.pem` temporária
-3. Acessa sua VM via SSH
-4. Executa:
-   - `git reset --hard && git pull`
-   - `docker-compose down`
-   - `docker-compose up -d --build`
-5. Apaga a chave temporária
+```bash
+git push origin master
+```
+
+O seguinte ocorre:
+
+1. GitHub Actions clona o repositório onde está o script Bash
+2. Decodifica a chave SSH `.pem`
+3. Define as variáveis de ambiente necessárias (AWS, EC2)
+4. Executa o script, que:
+   - Para a instância
+   - Escala para `t2.medium`
+   - Faz o deploy com `git pull` e `docker-compose up`
+   - Retorna a instância para `t2.micro`
+5. Remove a chave temporária
 
 ---
 
-## 📂 Estrutura esperada no servidor
+## 📁 Estrutura esperada no servidor EC2
 
-No caminho definido por `EC2_DEPLOY_DIR`, deve haver:
+O diretório definido por `DEPLOY_DIR` (no script) deve conter:
 
-- Projeto já clonado
-- `docker-compose.yml` pronto para rodar
-- Permissões corretas (usuário VM dono do diretório)
+- Projeto clonado do repositório
+- Arquivo `docker-compose.yml`
+- Scripts e permissões adequadas ao usuário SSH
 
 ---
 
 ## 🛡️ Segurança
 
-- A chave `.pem` **não é salva no repositório**
-- É gerada e apagada automaticamente após o deploy
-- Secrets do GitHub são mascarados nos logs
+- A chave `.pem` é **armazenada como secret codificada**
+- Só é criada e usada temporariamente no runner
+- Secrets do GitHub são protegidos e ocultos nos logs
+- A instância EC2 escala apenas durante o deploy
 
 ---
 
@@ -66,21 +85,21 @@ No caminho definido por `EC2_DEPLOY_DIR`, deve haver:
 ```bash
 # Faça alterações no projeto
 git add .
-git commit -m "update"
+git commit -m "feat: update de funcionalidade"
 git push origin master
 ```
 
-E pronto. O deploy será feito automaticamente na VMs.
+E pronto. O GitHub Actions cuida do resto.
 
 ---
 
 ## 📁 Arquivo de workflow
 
 O workflow está em:  
-`.github/workflows/main.yml`
+`.github/workflows/deploy.yml`
 
 ```yaml
-name: 🚀 Deploy Docker em EC2
+name: 🚀 EC2 Autoscaling + Deploy
 
 on:
   push:
@@ -88,44 +107,38 @@ on:
 
 jobs:
   deploy:
-    name: 🔄 Deploy automático via SSH
+    name: 🔄 Escalonamento + Deploy via script externo
     runs-on: ubuntu-latest
-    environment: aws
-
-    env:
-      SSH_KEY_PATH: ./ec2_key.pem
-      DEPLOY_DIR: ${{ secrets.EC2_DEPLOY_DIR }}
-      EC2_USER: ${{ secrets.EC2_USER }}
-      EC2_HOST: ${{ secrets.EC2_HOST }}
 
     steps:
-      - name: 📦 Clonar o repositório
+      - name: 📥 Clonar repositório com script
         uses: actions/checkout@v3
+        with:
+          repository: seu-usuario/xyz  # <-- Substitua pelo repositório real
+          path: script-repo
 
-      - name: 🔐 Criar chave SSH temporária a partir do secret base64
+      - name: 🔐 Criar chave SSH temporária
         run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > "$SSH_KEY_PATH"
-          chmod 600 "$SSH_KEY_PATH"
+          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > /tmp/ec2_key.pem
+          chmod 600 /tmp/ec2_key.pem
 
-      - name: 🚀 Conectar na EC2 e executar o deploy
+      - name: 🔧 Executar script com variáveis de ambiente
         run: |
-          echo "🔗 Conectando na EC2 em $EC2_HOST com o usuário $EC2_USER..."
-          ssh -tt -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" "
-            set -e
-            echo '📁 Entrando no diretório do projeto...'
-            cd '$DEPLOY_DIR'
-            echo '🌀 Resetando alterações locais (git reset --hard)...'
-            git reset --hard HEAD
-            git clean -fd
-            echo '📥 Fazendo pull da branch master...'
-            git pull origin master
-            echo '🛑 Parando containers antigos...'
-            docker-compose down
-            echo '🧱 Recriando containers com build...'
-            docker-compose up -d --build >/dev/null 2>&1 &&
-            echo '✅ Deploy finalizado com sucesso!' || echo '❌ Deploy falhou!'
-          "
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AWS_DEFAULT_REGION="us-east-1"
+
+          export EC2_USER="${{ secrets.EC2_USER }}"
+          export EC2_HOST="${{ secrets.EC2_HOST }}"
+          export SSH_KEY_B64_PATH="/tmp/ec2_key.pem"
+          export INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          export TYPE_INITIAL="t2.micro"
+          export TYPE_BUILD="t2.medium"
+
+          chmod +x script-repo/seu-script.sh
+          script-repo/seu-script.sh
 
       - name: 🧼 Limpar chave SSH temporária
-        run: rm -f "$SSH_KEY_PATH"
+        if: always()
+        run: rm -f /tmp/ec2_key.pem
 ```
