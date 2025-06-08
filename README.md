@@ -21,9 +21,12 @@ Configure os seguintes **secrets** em
 | `EC2_SSH_KEY`         | Conteúdo da `.pem` codificado em base64             |
 | `EC2_USER`            | Usuário SSH da EC2 (ex: `ubuntu`, `admin`)          |
 | `EC2_HOST`            | IP público ou DNS da instância EC2                  |
-| `EC2_INSTANCE_ID`     | ID da instância EC2 (ex: `i-00dac334671257ec59`)     |
+| `EC2_INSTANCE_ID`     | ID da instância EC2 (ex: `i-00dac334671257ec59`)    |
 | `AWS_ACCESS_KEY_ID`   | Chave pública do IAM                                |
 | `AWS_SECRET_ACCESS_KEY` | Chave secreta do IAM                              |
+| `TYPE_INITIAL`        | Máquina inicial                                     |
+| `TYPE_BUILD`          | Máquina build                                       |
+| `DEPLOY_DIR`          | Caminho completo do projeto na EC2                  |
 
 Para gerar o conteúdo do `EC2_SSH_KEY`:
 
@@ -31,7 +34,7 @@ Para gerar o conteúdo do `EC2_SSH_KEY`:
 base64 -w 0 ./ec2_key.pem > ec2_key.pem.b64
 ```
 
-Para copiar o conteudo do b64:
+Para copiar o conteúdo do `.b64`:
 
 ```bash
 cat ec2_key.pem.b64
@@ -44,6 +47,8 @@ cat ec2_key.pem.b64
 Quando você executa:
 
 ```bash
+git add .
+git commit -m "feat: update"
 git push origin master
 ```
 
@@ -80,19 +85,6 @@ O diretório definido por `DEPLOY_DIR` (no script) deve conter:
 
 ---
 
-## 💡 Exemplo de uso
-
-```bash
-# Faça alterações no projeto
-git add .
-git commit -m "feat: update de funcionalidade"
-git push origin master
-```
-
-E pronto. O GitHub Actions cuida do resto.
-
----
-
 ## 📁 Arquivo de workflow
 
 O workflow está em:  
@@ -115,7 +107,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: marco0antonio0/guideActionDeploy
-          path: ec2-scale-build.sh
+          path: script-repo  
 
       - name: 🔐 Criar chave SSH temporária
         run: |
@@ -132,13 +124,15 @@ jobs:
           export EC2_HOST="${{ secrets.EC2_HOST }}"
           export SSH_KEY_B64_PATH="/tmp/ec2_key.pem"
           export INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
-          export TYPE_INITIAL="t2.micro"
-          export TYPE_BUILD="t2.medium"
+          export TYPE_INITIAL="${{ secrets.TYPE_INITIAL }}"
+          export TYPE_BUILD="${{ secrets.TYPE_BUILD }}"
+          export DEPLOY_DIR="${{ secrets.EC2_DEPLOY_DIR }}"
 
-          chmod +x ec2-scale-build.sh
-          ec2-scale-build.sh
+          chmod +x script-repo/ec2-scale-build.sh
+          script-repo/ec2-scale-build.sh
 
       - name: 🧼 Limpar chave SSH temporária
         if: always()
         run: rm -f /tmp/ec2_key.pem
+
 ```
