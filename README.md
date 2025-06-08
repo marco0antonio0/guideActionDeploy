@@ -114,7 +114,7 @@ jobs:
       - name: 📥 Clonar repositório com script
         uses: actions/checkout@v3
         with:
-          repository: seu-usuario/xyz  # <-- Substitua pelo repositório real
+          repository: marco0antonio0/guideActionDeploy/blob/main/ec2-scale-build.sh
           path: script-repo
 
       - name: 🔐 Criar chave SSH temporária
