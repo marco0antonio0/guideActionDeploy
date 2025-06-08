@@ -36,14 +36,14 @@ log_error()   { echo -e "[ERRO] ❌ $1"; exit 1; }
 
 check_aws_env() {
   if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" || -z "$AWS_DEFAULT_REGION" ]]; then
-    error "❌ Variáveis AWS não definidas corretamente."
+    log_error "❌ Variáveis AWS não definidas corretamente."
   fi
   return 0
 }
 
 install_aws_cli_if_missing() {
   if ! aws --version &> /dev/null; then
-    error "❌ AWS CLI não detectada. Verifique se está corretamente instalada no sistema."
+    log_error "❌ AWS CLI não detectada. Verifique se está corretamente instalada no sistema."
   else
     log "✅ AWS CLI detectada: $(aws --version)"
   fi
