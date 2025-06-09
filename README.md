@@ -1,5 +1,5 @@
 
-# 🚀 Deploy Automático com GitHub Actions + Autoscaling EC2
+# 🚀 Deploy Automático com GitHub Actions + Autoscaling EC2 para build docker compose
 
 <details>
 <summary><strong>📋 Clique aqui para copiar o workflow</strong></summary>
@@ -75,9 +75,9 @@ Configure os seguintes **secrets** em
 | `EC2_INSTANCE_ID`        | ID da instância EC2 (ex: `i-00dac334671257ec59`)  |
 | `AWS_ACCESS_KEY_ID`      | Chave pública do IAM                              |
 | `AWS_SECRET_ACCESS_KEY`  | Chave secreta do IAM                              |
-| `TYPE_INITIAL`           | Máquina inicial                                   |
-| `TYPE_BUILD`             | Máquina build                                     |
 | `DEPLOY_DIR`             | Caminho completo do projeto na EC2                |
+| `TYPE_INITIAL`           | Máquina inicial (ex: `t2.micro`)                  |
+| `TYPE_BUILD`             | Máquina build (ex: `t2.medium`)                   |
 
 Para gerar o conteúdo do `EC2_SSH_KEY`:
 
