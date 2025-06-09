@@ -58,7 +58,7 @@ configure_aws_cli() {
 }
 
 decode_ssh_key() {
-  base64 -d "$SSH_KEY_B64_PATH" > "$SSH_KEY_TEMP"
+  cp "$SSH_KEY_B64_PATH" "$SSH_KEY_TEMP"
   chmod 600 "$SSH_KEY_TEMP"
 }
 
