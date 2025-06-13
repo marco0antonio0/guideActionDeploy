@@ -90,8 +90,9 @@ jobs:
           export AWS_DEFAULT_REGION="us-east-1"
           export TYPE_BUILD="${{ secrets.TYPE_BUILD }}"
           export INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
-          chmod +x script-repo/build_v2/ec2-scale-build-start.sh
-          script-repo/build_v2/ec2-scale-build-start.sh
+          chmod +x script-repo/build_v2/ec2-scale-build-scaling-start.sh
+          script-repo/build_v2/ec2-scale-build-scaling-start.sh
+          
         shell: bash
 
       - name: ⚙️ 🚀 Etapa 2 Deploy da aplicação na instância EC2
@@ -115,8 +116,8 @@ jobs:
           export AWS_DEFAULT_REGION="us-east-1"
           export TYPE_INITIAL="${{ secrets.TYPE_INITIAL }}"
           export INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
-          chmod +x script-repo/build_v2/ec2-scale-build-end.sh
-          script-repo/build_v2/ec2-scale-build-end.sh
+          chmod +x script-repo/build_v2/ec2-scale-build-scaling-end.sh
+          script-repo/build_v2/ec2-scale-build-scaling-end.sh
         shell: bash
 
       - name: 🧼 Limpar chave SSH temporária
