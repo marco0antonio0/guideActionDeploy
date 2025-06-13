@@ -84,7 +84,6 @@ jobs:
         shell: bash
 
       - name: ⚙️ 🔼 Etapa 1 Auto Scaling para instância mais forte
-        continue-on-error: true
         run: |
           export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
           export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
@@ -96,7 +95,7 @@ jobs:
         shell: bash
 
       - name: ⚙️ 🚀 Etapa 2 Deploy da aplicação na instância EC2
-        continue-on-error: true
+        if: success()  
         run: |
           export REPO_URL="${{ secrets.REPO_URL }}"
           export EC2_USER="${{ secrets.EC2_USER }}"
@@ -126,7 +125,6 @@ jobs:
           rm -f /tmp/ec2_key.pem
           echo "🧽 Chave SSH temporária removida com sucesso."
         shell: bash
-
 ```
 
 </details>
