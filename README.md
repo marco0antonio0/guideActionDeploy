@@ -2,7 +2,7 @@
 # 🚀 Deploy Automático com GitHub Actions + Autoscaling EC2 para build docker compose
 
 <details>
-<summary><strong>📋 Clique aqui para copiar o workflow</strong></summary>
+<summary><strong>📋 Clique aqui para copiar o workflow V1</strong></summary>
 
 ```yaml
 name: 🚀 EC2 Autoscaling + Deploys
@@ -31,6 +31,7 @@ jobs:
 
       - name: 🔧 Executar script com variáveis de ambiente
         run: |
+          export REPO_URL="${{ secrets.REPO_URL }}"
           export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
           export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           export AWS_DEFAULT_REGION="us-east-1"
@@ -53,6 +54,83 @@ jobs:
 
 </details>
 
+<details>
+<summary><strong>📋 Clique aqui para copiar o workflow V2</strong></summary>
+
+```yaml
+name: 🚀 EC2 Autoscaling + Deploy
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  deploy:
+    name: 🚀 Deploy + Autoscaling EC2
+    runs-on: ubuntu-latest
+    environment: aws
+
+    steps:
+      - name: 📥 Clonar repositório com scripts de deploy
+        uses: actions/checkout@v3
+        with:
+          repository: marco0antonio0/guideActionDeploy
+          path: script-repo  
+
+      - name: 🔐 Criar chave SSH temporária
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > /tmp/ec2_key.pem
+          chmod 600 /tmp/ec2_key.pem
+        shell: bash
+
+      - name: ⚙️ 🔼 Etapa 1: Auto Scaling para instância mais forte
+        continue-on-error: true
+        run: |
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AWS_DEFAULT_REGION="us-east-1"
+          export TYPE_BUILD="${{ secrets.TYPE_BUILD }}"
+          export INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          chmod +x script-repo/build_v2/ec2-scale-build-start.sh
+          script-repo/build_v2/ec2-scale-build-start.sh
+        shell: bash
+
+      - name: ⚙️ 🚀 Etapa 2: Deploy da aplicação na instância EC2
+        continue-on-error: true
+        run: |
+          export REPO_URL="${{ secrets.REPO_URL }}"
+          export EC2_USER="${{ secrets.EC2_USER }}"
+          export EC2_HOST="${{ secrets.EC2_HOST }}"
+          export SSH_KEY_B64_PATH="/tmp/ec2_key.pem"
+          export DEPLOY_DIR="${{ secrets.EC2_DEPLOY_DIR }}"
+          chmod +x script-repo/build_v2/ec2-scale-build.sh
+          script-repo/build_v2/ec2-scale-build.sh
+        shell: bash
+
+      - name: ⚙️ 🔽 Etapa 3: Reverter para instância padrão (autoscaling reverso)
+        if: always()
+        run: |
+          echo "♻️ Executando reversão para tipo inicial da instância EC2..."
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AWS_DEFAULT_REGION="us-east-1"
+          export TYPE_INITIAL="${{ secrets.TYPE_INITIAL }}"
+          export INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          chmod +x script-repo/build_v2/ec2-scale-build-end.sh
+          script-repo/build_v2/ec2-scale-build-end.sh
+        shell: bash
+
+      - name: 🧼 Limpar chave SSH temporária
+        if: always()
+        run: |
+          rm -f /tmp/ec2_key.pem
+          echo "🧽 Chave SSH temporária removida com sucesso."
+        shell: bash
+
+```
+
+</details>
+
 ---
 
 ## ✅ Pré-requisitos
@@ -68,16 +146,17 @@ Configure os seguintes **secrets** em
 `Settings > Secrets and variables > Actions`:
 
 | Nome                     | Descrição                                          |
-|--------------------------|---------------------------------------------------|
-| `EC2_SSH_KEY`            | Conteúdo da `.pem` codificado em base64           |
-| `EC2_USER`               | Usuário SSH da EC2 (ex: `ubuntu`, `admin`)        |
-| `EC2_HOST`               | IP público ou DNS da instância EC2                |
-| `EC2_INSTANCE_ID`        | ID da instância EC2 (ex: `i-00dac334671257ec59`)  |
-| `AWS_ACCESS_KEY_ID`      | Chave pública do IAM                              |
-| `AWS_SECRET_ACCESS_KEY`  | Chave secreta do IAM                              |
-| `EC2_DEPLOY_DIR`         | Caminho completo do projeto na EC2                |
-| `TYPE_INITIAL`           | Máquina inicial (ex: `t2.micro`)                  |
-| `TYPE_BUILD`             | Máquina build (ex: `t2.medium`)                   |
+|--------------------------|----------------------------------------------------|
+| `EC2_SSH_KEY`            | Conteúdo da `.pem` codificado em base64            |
+| `EC2_USER`               | Usuário SSH da EC2 (ex: `ubuntu`, `admin`)         |
+| `EC2_HOST`               | IP público ou DNS da instância EC2                 |
+| `EC2_INSTANCE_ID`        | ID da instância EC2 (ex: `i-00dac334671257ec59`)   |
+| `AWS_ACCESS_KEY_ID`      | Chave pública do IAM                               |
+| `AWS_SECRET_ACCESS_KEY`  | Chave secreta do IAM                               |
+| `EC2_DEPLOY_DIR`         | Caminho completo do projeto na EC2                 |
+| `TYPE_INITIAL`           | Máquina inicial (ex: `t2.micro`)                   |
+| `TYPE_BUILD`             | Máquina build (ex: `t2.medium`)                    |
+| `REPO_URL`               | URL do repositorio(opcional)                       |
 
 Para gerar o conteúdo do `EC2_SSH_KEY`:
 
