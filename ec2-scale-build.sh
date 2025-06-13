@@ -123,8 +123,13 @@ deploy_via_ssh() {
     echo -e "==============================================================="
 
     if [ ! -d "$DEPLOY_DIR" ]; then
-      echo -e "📁 [INFO] Pasta $DEPLOY_DIR nao existe, clonando repositório..."
-      git clone "$REPO_URL" "$DEPLOY_DIR"
+      if [ -n "$REPO_URL" ]; then
+        echo -e "📁 [INFO] Pasta $DEPLOY_DIR nao existe, clonando repositório..."
+        git clone "$REPO_URL" "$DEPLOY_DIR"
+      else
+        echo -e "❌ [ERRO] Variável REPO_URL não está definida. Não é possível clonar o repositório."
+        exit 1
+      fi
     fi
 
     cd "$DEPLOY_DIR"
