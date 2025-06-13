@@ -121,33 +121,46 @@ deploy_via_ssh() {
     echo -e "==============================================================="
     echo -e "                   Conexao ssh estabelecida"
     echo -e "==============================================================="
+
+    if [ ! -d "$DEPLOY_DIR" ]; then
+      echo -e "📁 [INFO] Pasta $DEPLOY_DIR nao existe, clonando repositório..."
+      git clone "$REPO_URL" "$DEPLOY_DIR"
+    fi
+
     cd "$DEPLOY_DIR"
 
-    echo -e "ℹ️ [INFO] Resetando alterações locais..."
-    git reset --hard HEAD
-    git clean -fd
+    if [ -d ".git" ]; then
+      echo -e "ℹ️ [INFO] Resetando alterações locais..."
+      git reset --hard HEAD
+      git clean -fd
 
-    echo -e "ℹ️ [INFO] Fazendo pull da branch..."
-    git pull origin
+      echo -e "ℹ️ [INFO] Fazendo pull da branch..."
+      git pull origin
+    else
+      echo -e "❌ [ERRO] Pasta existe mas nao é um repositório Git."
+      exit 1
+    fi
 
-    echo -e "ℹ️ [INFO] Parando containers antigos..."
-    docker-compose down
+    echo -e "ℹ️ [INFO] Verificando containers existentes..."
+    if docker ps -a --format '{{.Names}}' | grep -q .; then
+      echo -e "ℹ️ [INFO] Containers encontrados, parando..."
+      docker-compose down
+    else
+      echo -e "ℹ️ [INFO] Nenhum container em execução."
+    fi
 
     echo -e "ℹ️ [INFO] Subindo containers com build..."
     if docker-compose up -d --build > /dev/null 2>&1; then
       echo -e "✅ [OK] Deploy finalizado com sucesso."
-      echo -e "==============================================================="
-      echo -e "                    Conexao ssh encerrada"
-      echo -e "==============================================================="
-      echo -e "\n\n\n"
     else
       echo -e "❌ [ERRO] Deploy falhou durante o build/start."
-      echo -e "==============================================================="
-      echo -e "                    Conexao ssh encerrada"
-      echo -e "==============================================================="
-      echo -e "\n\n\n"
       exit 1
     fi
+
+    echo -e "==============================================================="
+    echo -e "                    Conexao ssh encerrada"
+    echo -e "==============================================================="
+    echo -e "\n\n\n"
 EOF
 
 }
