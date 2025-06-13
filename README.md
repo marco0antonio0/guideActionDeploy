@@ -83,7 +83,7 @@ jobs:
           chmod 600 /tmp/ec2_key.pem
         shell: bash
 
-      - name: ⚙️ 🔼 Etapa 1: Auto Scaling para instância mais forte
+      - name: ⚙️ 🔼 Etapa 1 Auto Scaling para instância mais forte
         continue-on-error: true
         run: |
           export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
@@ -95,7 +95,7 @@ jobs:
           script-repo/build_v2/ec2-scale-build-start.sh
         shell: bash
 
-      - name: ⚙️ 🚀 Etapa 2: Deploy da aplicação na instância EC2
+      - name: ⚙️ 🚀 Etapa 2 Deploy da aplicação na instância EC2
         continue-on-error: true
         run: |
           export REPO_URL="${{ secrets.REPO_URL }}"
@@ -107,7 +107,7 @@ jobs:
           script-repo/build_v2/ec2-scale-build.sh
         shell: bash
 
-      - name: ⚙️ 🔽 Etapa 3: Reverter para instância padrão (autoscaling reverso)
+      - name: ⚙️ 🔽 Etapa 3 Reverter para instância padrão (autoscaling reverso)
         if: always()
         run: |
           echo "♻️ Executando reversão para tipo inicial da instância EC2..."
