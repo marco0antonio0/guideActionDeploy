@@ -130,6 +130,133 @@ jobs:
 
 </details>
 
+<details>
+<summary><strong>📋 Clique aqui para copiar o workflow V3</strong></summary>
+
+```yaml
+name: 🚀 Deploy EC2 via SSH + Docker
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    name: 🧰 Deploy 
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      BRANCH: main
+      TYPE_BUILD: t2.medium
+      TYPE_INITIAL: t2.micro
+      AWS_DEFAULT_REGION: us-east-1
+      DEPLOY_DIR: /home/admin/dev/seu-dir-projeto
+
+    steps:
+      - name: Instalar AWS CLI se necessário
+        run: |
+          if ! command -v aws &>/dev/null; then
+            echo "🧰 AWS CLI não encontrada, instalando..."
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip -q awscliv2.zip
+            sudo ./aws/install
+            rm -rf aws awscliv2.zip
+          else
+            echo "✅ AWS CLI já está instalada: $(aws --version)"
+          fi
+
+      - name: 🔐 Configurar AWS CLI
+        run: |
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+          aws configure set region "$AWS_DEFAULT_REGION"
+
+      - name: ⚙️ Escalar instância para Build
+        run: |
+          export INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          aws ec2 stop-instances --instance-ids "$INSTANCE_ID"
+          aws ec2 wait instance-stopped --instance-ids "$INSTANCE_ID"
+          aws ec2 modify-instance-attribute --instance-id "$INSTANCE_ID" --instance-type "{\"Value\": \"${TYPE_BUILD}\"}"
+          aws ec2 start-instances --instance-ids "$INSTANCE_ID"
+          aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+          echo "✅ Instância escalada para $TYPE_BUILD"
+
+      - name: 🧪 SSH Deploy + Docker
+        if: always()
+        continue-on-error: true
+        run: |
+          export EC2_USER="${{ secrets.EC2_USER }}"
+          export EC2_HOST="${{ secrets.EC2_HOST }}"
+          export SSH_KEY_B64="${{ secrets.EC2_SSH_KEY }}"
+
+          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > chave.pem
+          chmod 400 chave.pem
+
+          for i in {1..30}; do
+            echo "⏳ Aguardando SSH responder ($i/30)..."
+            if nc -z "$EC2_HOST" 22; then
+              echo "✅ Porta 22 (SSH) disponível"
+              break
+            fi
+            sleep 5
+          done
+
+          ssh -i chave.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST bash <<EOF
+          set -e
+          printf '=%.0s' {1..63}; echo
+          echo -e "               🖧 Conexão SSH estabelecida"
+          printf '=%.0s' {1..63}; echo
+
+          cd "$DEPLOY_DIR"
+          if [ -d ".git" ]; then
+            echo "🔄 Resetando código..."
+            git fetch origin
+            git reset --hard "origin/$BRANCH"
+            git clean -fd
+          else
+            echo "❌ Pasta não é um repositório Git."
+            exit 1
+          fi
+
+          echo "🐳 Verificando containers..."
+          docker ps -a --format '{{.Names}}' | grep -q . && docker-compose down || echo "Nenhum container ativo."
+
+          echo "🚀 Subindo containers com build..."
+          if docker-compose up -d --build > /dev/null 2>&1; then
+            echo -e "✅ [OK] Deploy finalizado com sucesso."
+          else
+            echo -e "❌ [ERRO] Deploy falhou durante o build/start."
+            exit 1
+          fi
+
+          printf '=%.0s' {1..63}; echo
+          echo -e "               🔚 Conexão SSH encerrada"
+          printf '=%.0s' {1..63}; echo
+          EOF
+
+      - name: 🔽 Escalar instância para tipo original
+        if: always()
+        continue-on-error: true
+        run: |
+          export INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          aws ec2 stop-instances --instance-ids "$INSTANCE_ID"
+          aws ec2 wait instance-stopped --instance-ids "$INSTANCE_ID"
+          aws ec2 modify-instance-attribute --instance-id "$INSTANCE_ID" --instance-type "{\"Value\": \"${TYPE_INITIAL}\"}"
+          aws ec2 start-instances --instance-ids "$INSTANCE_ID"
+          aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+          echo "🧹 Instância restaurada para $TYPE_INITIAL"
+
+      - name: 🧼 Limpeza final
+        if: always()
+        continue-on-error: true
+        run: |
+          rm -f chave.pem || true
+          echo "🧼 Workflow finalizado e limpo."
+```
+
+</details>
 ---
 
 ## ✅ Pré-requisitos
@@ -140,7 +267,27 @@ jobs:
 - Acesso SSH com chave `.pem`
 - Permissões adequadas no diretório
 
-### No Repositório GitHub
+### No Repositório GitHub - modelo v3
+Configure os seguintes **secrets** em  
+`Settings > Secrets and variables > Actions`:
+`Private vars -> variaveis secrets de ambiente configuração interna`:
+`Documents vars -> variaveis secrets configuração no codigo action`:
+
+| Nome                     | Descrição                                                       |
+|--------------------------|-----------------------------------------------------------------|
+| `EC2_SSH_KEY`            | Private vars conteúdo da `.pem` codificado em base64            |
+| `EC2_USER`               | Private vars Usuário SSH da EC2 (ex: `ubuntu`, `admin`)         |
+| `EC2_HOST`               | Private vars IP público ou DNS da instância EC2                 |
+| `EC2_INSTANCE_ID`        | Private vars ID da instância EC2 (ex: `i-00dac334671257ec59`)   |
+| `AWS_ACCESS_KEY_ID`      | Private vars Chave pública do IAM                               |
+| `AWS_SECRET_ACCESS_KEY`  | Private vars Chave secreta do IAM                               |
+| `EC2_DEPLOY_DIR`         | Documents vars Caminho completo do projeto na EC2               |
+| `TYPE_INITIAL`           | Documents vars Máquina inicial (ex: `t2.micro`)                 |
+| `TYPE_BUILD`             | Documents vars Máquina build (ex: `t2.medium`)                  |
+| `REPO_URL`               | URL do repositorio(opcional)                                    |
+
+
+### No Repositório GitHub - modelo v1 & v2
 Configure os seguintes **secrets** em  
 `Settings > Secrets and variables > Actions`:
 
