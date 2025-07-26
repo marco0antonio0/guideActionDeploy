@@ -284,7 +284,6 @@ Configure os seguintes **secrets** em
 | `EC2_DEPLOY_DIR`         | Documents vars Caminho completo do projeto na EC2               |
 | `TYPE_INITIAL`           | Documents vars Máquina inicial (ex: `t2.micro`)                 |
 | `TYPE_BUILD`             | Documents vars Máquina build (ex: `t2.medium`)                  |
-| `REPO_URL`               | URL do repositorio(opcional)                                    |
 
 
 ### No Repositório GitHub - modelo v1 & v2
